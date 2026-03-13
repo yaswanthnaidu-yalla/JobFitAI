@@ -6,8 +6,8 @@ const Navbar = () => {
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
-    { icon: Briefcase, label: "Jobs", path: "/" },
-    { icon: Users, label: "Candidates", path: "/" },
+    { icon: Briefcase, label: "Jobs", path: "/jobs" },
+    { icon: Users, label: "Candidates", path: "/candidates" },
   ];
 
   return (
@@ -33,7 +33,10 @@ const Navbar = () => {
         </div>
         <div className="flex items-center gap-1">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path && item.label === "Home";
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(item.path);
             return (
               <Link
                 key={item.label}

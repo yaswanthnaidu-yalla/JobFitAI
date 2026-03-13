@@ -7,6 +7,8 @@ import Dashboard from "@/pages/Dashboard";
 import NewJob from "@/pages/NewJob";
 import JobDetail from "@/pages/JobDetail";
 import CandidateDetail from "@/pages/CandidateDetail";
+import Jobs from "@/pages/Jobs";
+import Candidates from "@/pages/Candidates";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +21,8 @@ const App = () => (
         <Navbar />
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/candidates" element={<Candidates />} />
           <Route path="/jobs/new" element={<NewJob />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/jobs/:id/candidates/:cid" element={<CandidateDetail />} />

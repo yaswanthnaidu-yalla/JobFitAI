@@ -1,12 +1,47 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Plus, Briefcase, Users, TrendingUp } from "lucide-react";
-import { useJobStore } from "@/lib/job-store";
+import { supabase } from "@/lib/supabase";
+import type { Job, Candidate } from "@/lib/mock-data";
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 
 const Dashboard = () => {
-  const { jobs, candidates } = useJobStore();
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [{ data: jobsData, error: jobsError }, { data: candidatesData, error: candidatesError }] =
+          await Promise.all([
+            supabase.from("jobs").select("*").order("created_at", { ascending: false }),
+            supabase.from("candidates").select("*"),
+          ]);
+
+        if (jobsError) {
+          console.error("Failed to fetch jobs from Supabase:", jobsError);
+        }
+        if (candidatesError) {
+          console.error("Failed to fetch candidates from Supabase:", candidatesError);
+        }
+
+        if (!cancelled) {
+          setJobs((jobsData as Job[]) ?? []);
+          setCandidates((candidatesData as Candidate[]) ?? []);
+        }
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const totalResumes = candidates.length;
   const avgScore =

@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, Download } from "lucide-react";
+import { ArrowLeft, CheckCircle, Trash2, XCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useJobStore } from "@/lib/job-store";
+import { useEffect, useState } from "react";
+import type { Job, Candidate } from "@/lib/mock-data";
 import CandidateAvatar from "@/components/Avatar";
 import ScoreBadge from "@/components/ScoreBadge";
 import SkillChip from "@/components/SkillChip";
@@ -10,9 +12,47 @@ import { toast } from "sonner";
 const CandidateDetail = () => {
   const { id, cid } = useParams<{ id: string; cid: string }>();
   const navigate = useNavigate();
-  const { getCandidate, getJob, updateCandidateStatus } = useJobStore();
-  const candidate = getCandidate(cid!);
-  const job = getJob(id!);
+  const { getCandidate, getJob, updateCandidateStatus, getJobCandidates, deleteCandidate } = useJobStore();
+  const [candidate, setCandidate] = useState<Candidate | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id || !cid) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // Ensure candidates for this job are loaded, then select from store
+        await getJobCandidates(id);
+        if (cancelled) return;
+        const loadedCandidate = getCandidate(cid);
+        const loadedJob = await getJob(id);
+        if (!cancelled) {
+          setCandidate(loadedCandidate ?? null);
+          setJob(loadedJob ?? null);
+        }
+      } catch (err) {
+        console.error("Failed to load candidate detail:", err);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, cid, getCandidate, getJob, getJobCandidates]);
+
+  if (loading) {
+    return (
+      <div className="max-w-[680px] mx-auto px-4 py-12 text-center">
+        <p className="text-muted-foreground">Loading candidate...</p>
+      </div>
+    );
+  }
 
   if (!candidate || !job) {
     return (
@@ -22,13 +62,42 @@ const CandidateDetail = () => {
     );
   }
 
-  const handleStatus = (status: "shortlisted" | "rejected") => {
-    updateCandidateStatus(cid!, status);
+  const handleStatus = async (status: "shortlisted" | "rejected") => {
+    if (!cid) return;
+    await updateCandidateStatus(cid, status);
+    setCandidate((prev) => (prev ? { ...prev, status } : prev));
     toast.success(
       status === "shortlisted"
         ? `${candidate.name} shortlisted!`
         : `${candidate.name} rejected`
     );
+  };
+
+  const handleDeleteCandidate = async () => {
+    if (!cid) return;
+    if (!window.confirm("Delete this candidate?")) return;
+    try {
+      await deleteCandidate(cid);
+      navigate(`/jobs/${id}`);
+    } catch {
+      toast.error("Failed to delete candidate. Please try again.");
+    }
+  };
+
+  const showResumeButton =
+    (candidate.source === "upload" && !!candidate.resume_url) ||
+    candidate.source === "linkedin";
+
+  const handleResumeClick = () => {
+    if (candidate.source === "upload" && candidate.resume_url) {
+      toast.info("Resume file is stored locally — re-upload to download.");
+      return;
+    }
+
+    if (candidate.source === "linkedin") {
+      const url = candidate.resume_url || "https://www.linkedin.com";
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   return (
@@ -115,9 +184,25 @@ const CandidateDetail = () => {
           <XCircle className="w-4 h-4" />
           {candidate.status === "rejected" ? "Rejected" : "Reject"}
         </Button>
-        <Button variant="outline" className="gap-2">
-          <Download className="w-4 h-4" />
-          Download Resume
+        {showResumeButton && (
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleResumeClick}
+          >
+            <Download className="w-4 h-4" />
+            {candidate.source === "linkedin"
+              ? "View LinkedIn Profile"
+              : "Download Resume"}
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          className="gap-2 text-destructive hover:text-destructive"
+          onClick={handleDeleteCandidate}
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Candidate
         </Button>
       </div>
     </div>

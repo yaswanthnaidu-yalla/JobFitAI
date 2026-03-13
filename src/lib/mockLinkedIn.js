@@ -12,8 +12,16 @@ const mockProfiles = [
   { name: 'Alex Wong', headline: 'Junior Developer at Agency',
     skills: 'JavaScript, HTML, CSS, basic Python, no backend experience' }
 ]
-let i = 0
+
 export const mockProfileImport = (url) =>
-  new Promise(resolve => setTimeout(() => {
-    resolve(mockProfiles[i++ % mockProfiles.length])
-  }, 1500))
+  new Promise(resolve =>
+    setTimeout(() => {
+      const randomIndex = Math.floor(Math.random() * mockProfiles.length);
+      const base = mockProfiles[randomIndex];
+      const uniqueSuffix = Math.floor(Math.random() * 100000);
+      resolve({
+        ...base,
+        name: `${base.name} #${uniqueSuffix}`,
+      });
+    }, 1500)
+  )

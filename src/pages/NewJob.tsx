@@ -31,15 +31,20 @@ const NewJob = () => {
     }, 1500);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
-    const id = addJob(title, description);
-    toast.success("Job created! Start adding candidates.");
-    navigate(`/jobs/${id}`);
+    try {
+      const job = await addJob(title, description);
+      toast.success("Job created! Start adding candidates.");
+      navigate(`/jobs/${job.id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create job. Please try again.");
+    }
   };
 
   return (
@@ -57,20 +62,20 @@ const NewJob = () => {
         {/* LinkedIn Import */}
         <div className="mb-6">
           <label className="text-sm font-medium text-foreground mb-2 block">
-            Import from LinkedIn
+            Job Posting URL
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Paste LinkedIn Job URL"
+                placeholder="Paste job URL from LinkedIn, Naukri, Indeed, or anywhere"
                 value={linkedinUrl}
                 onChange={(e) => setLinkedinUrl(e.target.value)}
                 className="pl-9"
               />
             </div>
             <Button onClick={handleImport} disabled={importing}>
-              Import from LinkedIn
+              Import Job
             </Button>
           </div>
         </div>

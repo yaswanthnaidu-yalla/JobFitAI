@@ -12,6 +12,7 @@ export interface Candidate {
   job_id: string;
   name: string;
   headline: string;
+  resume_url?: string | null;
   source: "upload" | "linkedin";
   match_score: number;
   ai_summary: string[];

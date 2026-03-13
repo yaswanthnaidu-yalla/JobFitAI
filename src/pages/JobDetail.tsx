@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, Link2, Upload } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Link2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useJobStore } from "@/lib/job-store";
+import type { Job, Candidate } from "@/lib/mock-data";
 import { MOCK_CANDIDATES } from "@/lib/mock-data";
 import { mockProfileImport } from "@/lib/mockLinkedIn";
 import CandidateAvatar from "@/components/Avatar";
@@ -18,103 +19,211 @@ import { toast } from "sonner";
 const JobDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getJob, getJobCandidates, addCandidate } = useJobStore();
-  const job = getJob(id!);
-  const candidates = getJobCandidates(id!);
+  const { getJob, getJobCandidates, addCandidate, deleteJob } = useJobStore();
+
+  const [job, setJob] = useState<Job | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [loadingJob, setLoadingJob] = useState(true);
+  const [loadingCandidates, setLoadingCandidates] = useState(true);
+
+  const addAndRefresh = async (
+    candidate: Omit<Candidate, "id" | "created_at">
+  ) => {
+    const created = await addCandidate(candidate);
+    setCandidates((prev) =>
+      [...prev, created].sort((a, b) => b.match_score - a.match_score)
+    );
+  };
 
   const [jdExpanded, setJdExpanded] = useState(false);
+
+  const handleDeleteJob = async () => {
+    if (!window.confirm("Delete this job and all its candidates?")) return;
+    try {
+      await deleteJob(id!);
+      navigate("/jobs");
+    } catch {
+      toast.error("Failed to delete job. Please try again.");
+    }
+  };
+
   const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [linkedinMethod, setLinkedinMethod] = useState<"url" | "text">("url");
+  const [profileText, setProfileText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
 
-  // ── Shared screening function ──────────────────────────────────────────────
- const screenCandidate = async (resumeText: string) => {
-  const mockResults = [
-    {
-      name: "Sarah Chen",
-      match_score: 91,
-      summary: [
-        "Strong Python & API background matches all core requirements",
-        "AWS and Docker experience covers all preferred qualifications",
-        "No critical gaps — recommend for immediate interview"
-      ],
-      skills_matched: ["Python", "REST APIs", "PostgreSQL", "AWS", "Docker"],
-      skills_missing: ["Kubernetes"]
-    },
-    {
-      name: "James Patel",
-      match_score: 74,
-      summary: [
-        "Solid Python and SQL skills meet core requirements",
-        "REST API experience is relevant but limited in scale",
-        "Missing cloud infrastructure experience — would need onboarding"
-      ],
-      skills_matched: ["Python", "SQL", "REST APIs", "Node.js"],
-      skills_missing: ["AWS", "Docker", "Kubernetes"]
-    },
-    {
-      name: "Alex Wong",
-      match_score: 42,
-      summary: [
-        "Frontend-focused profile does not match backend requirements",
-        "Basic Python knowledge insufficient for senior role",
-        "Significant skill gaps across most required technologies"
-      ],
-      skills_matched: ["JavaScript", "Python"],
-      skills_missing: ["REST APIs", "PostgreSQL", "AWS", "Docker"]
-    }
-  ]
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
 
-  // Simulate AI delay
-  await new Promise(resolve => setTimeout(resolve, 2000))
-  
-  // Cycle through results
-  const index = Math.floor(Math.random() * mockResults.length)
-  return mockResults[index]
-}
+    (async () => {
+      try {
+        const [jobData, candidateList] = await Promise.all([
+          getJob(id),
+          getJobCandidates(id),
+        ]);
+        if (!cancelled) {
+          setJob(jobData ?? null);
+          setCandidates(candidateList);
+        }
+      } catch (err) {
+        console.error("Failed to load job detail:", err);
+      } finally {
+        if (!cancelled) {
+          setLoadingJob(false);
+          setLoadingCandidates(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, getJob, getJobCandidates]);
+
+  const handleExportShortlist = () => {
+    if (!candidates.length) return;
+
+    const header = [
+      "Rank",
+      "Name",
+      "Headline",
+      "Score",
+      "Status",
+      "Skills Matched",
+      "Skills Missing",
+    ];
+
+    const escape = (value: string | number | null | undefined) => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      if (/[",\n]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = candidates.map((c, idx) => [
+      idx + 1,
+      c.name,
+      c.headline,
+      c.match_score,
+      c.status,
+      (c.skills_matched || []).join("; "),
+      (c.skills_missing || []).join("; "),
+    ]);
+
+    const csvLines = [
+      header.map(escape).join(","),
+      ...rows.map((row) => row.map(escape).join(",")),
+    ];
+
+    const csv = csvLines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${job?.title ?? "shortlist"}-shortlist.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Shared screening function ──────────────────────────────────────────────
+  const screenCandidate = async (resumeText: string) => {
+    await new Promise((res) => setTimeout(res, 2000));
+    const nameMatch = resumeText.match(/name[:\s]+([A-Za-z ]+)/i);
+    const name = nameMatch?.[1]?.trim() || "Candidate";
+    const score = Math.floor(Math.random() * 30) + 65;
+    return {
+      name,
+      match_score: score,
+      summary: [
+        "Strong alignment with core technical requirements in the job description.",
+        "Demonstrated experience in relevant tools and frameworks.",
+        "Minor gaps in some preferred qualifications but overall a strong fit.",
+      ],
+      skills_matched: ["React", "TypeScript", "REST APIs", "Agile"],
+      skills_missing: ["GraphQL", "AWS"],
+    };
+  };
   // ── LinkedIn Profile Import ────────────────────────────────────────────────
   const handleImportCandidate = useCallback(async () => {
-    if (!linkedinUrl.trim()) {
-      toast.error("Please paste a LinkedIn profile URL");
-      return;
-    }
-
     setImporting(true);
 
     try {
-      // Step 1 — mock LinkedIn fetch (1.5s delay, returns name + headline + skills)
-      setImportMessage("Importing profile from LinkedIn...");
-      const profile = await mockProfileImport(linkedinUrl);
+      if (!job) {
+        toast.error("Job details not loaded yet. Please wait a moment and try again.");
+        return;
+      }
 
-      // Step 2 — build resume text from profile and call /api/screen
-      setImportMessage(`Running AI screening for ${profile.name}...`);
-      const resumeText = `Name: ${profile.name}\nCurrent Role: ${profile.headline}\nSkills: ${profile.skills}`;
-      const result = await screenCandidate(resumeText, "linkedin");
+      if (linkedinMethod === "text") {
+        if (!profileText.trim()) {
+          toast.error("Please paste candidate profile text");
+          return;
+        }
 
-      // Step 3 — save to store
-      addCandidate({
-        id: crypto.randomUUID(),
-        job_id: id!,
-        name: result.name || profile.name,
-        headline: profile.headline,
-        resume_url: null,
-        source: "linkedin",
-        match_score: result.match_score,
-        ai_summary: result.summary,
-        skills_matched: result.skills_matched,
-        skills_missing: result.skills_missing,
-        status: "pending",
-      });
+        setImportMessage("Running AI screening for pasted profile...");
+        const resumeText = profileText;
+        const result = await screenCandidate(resumeText);
 
-      setLinkedinUrl("");
-      toast.success(`${result.name || profile.name} screened — Score: ${result.match_score}`);
+        await addAndRefresh({
+          job_id: id!,
+          name: result.name,
+          headline: "",
+          resume_url: null,
+          source: "linkedin",
+          match_score: result.match_score,
+          ai_summary: result.summary,
+          skills_matched: result.skills_matched,
+          skills_missing: result.skills_missing,
+          status: "pending",
+        });
+
+        setProfileText("");
+        toast.success(`${result.name} screened — Score: ${result.match_score}`);
+      } else {
+        if (!linkedinUrl.trim()) {
+          toast.error("Please paste a LinkedIn profile URL");
+          return;
+        }
+
+        // Step 1 — mock LinkedIn fetch (1.5s delay, returns name + headline + skills)
+        setImportMessage("Importing profile from LinkedIn...");
+        const profile = await mockProfileImport(linkedinUrl);
+
+        // Step 2 — build resume text from profile and call /api/screen
+        setImportMessage(`Running AI screening for ${profile.name}...`);
+        const resumeText = `Name: ${profile.name}\nCurrent Role: ${profile.headline}\nSkills: ${profile.skills}`;
+        const result = await screenCandidate(resumeText);
+
+        // Step 3 — save to store
+        await addAndRefresh({
+          job_id: id!,
+          name: profile.name,
+          headline: profile.headline,
+          resume_url: null,
+          source: "linkedin",
+          match_score: result.match_score,
+          ai_summary: result.summary,
+          skills_matched: result.skills_matched,
+          skills_missing: result.skills_missing,
+          status: "pending",
+        });
+
+        setLinkedinUrl("");
+        toast.success(`${result.name || profile.name} screened — Score: ${result.match_score}`);
+      }
     } catch (err) {
       toast.error("Screening failed. Try again.");
     } finally {
       setImporting(false);
       setImportMessage("");
     }
-  }, [linkedinUrl, id, job, addCandidate]);
+  }, [linkedinUrl, linkedinMethod, profileText, id, job, addCandidate, toast]);
 
   // ── PDF Upload ─────────────────────────────────────────────────────────────
   const handleFileUpload = useCallback(async (e?: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,12 +234,16 @@ const JobDetail = () => {
     setImportMessage("Parsing resume...");
 
     try {
+      if (!job) {
+        toast.error("Job details not loaded yet. Please wait a moment and try again.");
+        return;
+      }
       let resumeText = "";
 
       if (file) {
         // Real PDF extraction via pdfjs-dist
         const pdfjsLib = await import("pdfjs-dist");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const pages = await Promise.all(
@@ -147,13 +260,20 @@ const JobDetail = () => {
         resumeText = `Name: ${mock.name}\nRole: ${mock.headline}\nSkills: ${mock.skills_matched.join(", ")}`;
       }
 
-      setImportMessage("Running AI screening...");
-      const result = await screenCandidate(resumeText, "upload");
+      // Try to extract a likely name from the first chunk of PDF text,
+      // since formatting is stripped and "Name:" prefixes may be missing.
+      const snippet = resumeText.slice(0, 500);
+      const nameMatch = snippet.match(/\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\b/);
+      const extractedName = nameMatch ? `${nameMatch[1]} ${nameMatch[2]}` : null;
 
-      addCandidate({
-        id: crypto.randomUUID(),
+      setImportMessage("Running AI screening...");
+      const result = await screenCandidate(resumeText);
+
+      const finalName = extractedName || result.name;
+
+      await addAndRefresh({
         job_id: id!,
-        name: result.name,
+        name: finalName,
         headline: "",
         resume_url: file ? file.name : null,
         source: "upload",
@@ -164,14 +284,14 @@ const JobDetail = () => {
         status: "pending",
       });
 
-      toast.success(`${result.name} screened — Score: ${result.match_score}`);
+      toast.success(`${finalName} screened — Score: ${result.match_score}`);
     } catch (err) {
       toast.error("Resume screening failed. Try again.");
     } finally {
       setImporting(false);
       setImportMessage("");
     }
-  }, [id, job, addCandidate]);
+  }, [id, job, addCandidate, toast]);
 
   if (!job) {
     return (
@@ -202,6 +322,15 @@ const JobDetail = () => {
               Active
             </span>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDeleteJob}
+            className="text-muted-foreground hover:text-destructive"
+            aria-label="Delete job"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
         <div className="mt-3">
           <p className={`text-sm text-muted-foreground ${!jdExpanded ? "line-clamp-2" : ""}`}>
@@ -223,27 +352,53 @@ const JobDetail = () => {
       {/* Add Candidates */}
       <div className="linkedin-card p-5">
         <h2 className="font-semibold text-foreground mb-4">Add Candidates</h2>
-        <Tabs defaultValue="linkedin">
+        <Tabs
+          defaultValue="url"
+          onValueChange={(v) => { if (v === "url" || v === "text") setLinkedinMethod(v); }}
+        >
           <TabsList className="mb-4">
-            <TabsTrigger value="linkedin">Import from LinkedIn</TabsTrigger>
+            <TabsTrigger value="url">Import by URL</TabsTrigger>
+            <TabsTrigger value="text">Paste Profile Text</TabsTrigger>
             <TabsTrigger value="upload">Upload Resume</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="linkedin">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Paste LinkedIn Profile URL"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  className="pl-9"
-                  disabled={importing}
-                />
+          <TabsContent value="url">
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Paste profile URL from LinkedIn, Naukri, Indeed, or anywhere"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    className="pl-9"
+                    disabled={importing}
+                  />
+                </div>
+                <Button onClick={handleImportCandidate} disabled={importing}>
+                  Import Candidate
+                </Button>
               </div>
-              <Button onClick={handleImportCandidate} disabled={importing}>
-                Import Candidate
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                Tip: If URL import fails, paste the profile text directly.
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="text">
+            <div className="space-y-2">
+              <textarea
+                placeholder="Paste candidate's profile text (from LinkedIn, Naukri, Indeed, or any platform)"
+                className="w-full min-h-[140px] rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                value={profileText}
+                onChange={(e) => setProfileText(e.target.value)}
+                disabled={importing}
+              />
+              <div className="flex justify-end">
+                <Button onClick={handleImportCandidate} disabled={importing}>
+                  Screen Candidate
+                </Button>
+              </div>
             </div>
           </TabsContent>
 
@@ -271,9 +426,20 @@ const JobDetail = () => {
 
       {/* Ranked Candidates */}
       <div className="linkedin-card p-5">
-        <h2 className="font-semibold text-foreground mb-4">
-          Ranked Candidates ({candidates.length})
-        </h2>
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <h2 className="font-semibold text-foreground">
+            Ranked Candidates ({candidates.length})
+          </h2>
+          {candidates.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportShortlist}
+            >
+              Export Shortlist
+            </Button>
+          )}
+        </div>
 
         {importing && candidates.length === 0 && (
           <div className="space-y-3">
@@ -324,4 +490,3 @@ const JobDetail = () => {
 };
 
 export default JobDetail;
-console.log("KEY:", import.meta.env.VITE_GEMINI_API_KEY?.slice(0, 15))
