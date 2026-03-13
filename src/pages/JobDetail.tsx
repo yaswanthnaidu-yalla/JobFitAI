@@ -132,22 +132,56 @@ const JobDetail = () => {
     URL.revokeObjectURL(url);
   };
 
-  // ── Shared screening function ──────────────────────────────────────────────
-  const screenCandidate = async (resumeText: string) => {
-    await new Promise((res) => setTimeout(res, 2000));
-    const nameMatch = resumeText.match(/name[:\s]+([A-Za-z ]+)/i);
-    const name = nameMatch?.[1]?.trim() || "Candidate";
-    const score = Math.floor(Math.random() * 30) + 65;
-    return {
-      name,
-      match_score: score,
-      summary: [
-        "Strong alignment with core technical requirements in the job description.",
-        "Demonstrated experience in relevant tools and frameworks.",
-        "Minor gaps in some preferred qualifications but overall a strong fit.",
-      ],
-      skills_matched: ["React", "TypeScript", "REST APIs", "Agile"],
-      skills_missing: ["GraphQL", "AWS"],
+  // ── Shared screening function (Groq llama-3.1-8b-instant) ────────────────
+  const screenCandidate = async (resumeText: string, jobDescription: string) => {
+    const userMessage = `Job Description:
+${jobDescription}
+
+Candidate Resume / Profile:
+${resumeText}
+
+Return a JSON object with these fields:
+- name: string (candidate name extracted from the resume, or "Candidate" if not found)
+- match_score: number 0-100 (based on fit with the job description)
+- summary: array of exactly 3 strings (each explaining an aspect of the match)
+- skills_matched: array of strings
+- skills_missing: array of strings`;
+
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a resume screening AI. Always respond with valid JSON only, no markdown, no explanation.",
+          },
+          { role: "user", content: userMessage },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Groq API error: ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const raw: string = data.choices[0].message.content;
+
+    // Strip markdown code fences in case the model adds them despite instructions
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+    return JSON.parse(cleaned) as {
+      name: string;
+      match_score: number;
+      summary: string[];
+      skills_matched: string[];
+      skills_missing: string[];
     };
   };
   // ── LinkedIn Profile Import ────────────────────────────────────────────────
@@ -168,7 +202,7 @@ const JobDetail = () => {
 
         setImportMessage("Running AI screening for pasted profile...");
         const resumeText = profileText;
-        const result = await screenCandidate(resumeText);
+        const result = await screenCandidate(resumeText, job.description);
 
         await addAndRefresh({
           job_id: id!,
@@ -198,7 +232,7 @@ const JobDetail = () => {
         // Step 2 — build resume text from profile and call /api/screen
         setImportMessage(`Running AI screening for ${profile.name}...`);
         const resumeText = `Name: ${profile.name}\nCurrent Role: ${profile.headline}\nSkills: ${profile.skills}`;
-        const result = await screenCandidate(resumeText);
+        const result = await screenCandidate(resumeText, job.description);
 
         // Step 3 — save to store
         await addAndRefresh({
@@ -267,7 +301,7 @@ const JobDetail = () => {
       const extractedName = nameMatch ? `${nameMatch[1]} ${nameMatch[2]}` : null;
 
       setImportMessage("Running AI screening...");
-      const result = await screenCandidate(resumeText);
+      const result = await screenCandidate(resumeText, job.description);
 
       const finalName = extractedName || result.name;
 
