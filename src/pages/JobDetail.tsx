@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useJobStore } from "@/lib/job-store";
 import { MOCK_CANDIDATES } from "@/lib/mock-data";
+import { mockProfileImport } from "@/lib/mockLinkedIn";
 import CandidateAvatar from "@/components/Avatar";
 import ScoreBadge from "@/components/ScoreBadge";
 import SkillChip from "@/components/SkillChip";
 import LinkedInSpinner from "@/components/LinkedInSpinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+
 
 const JobDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,40 +26,152 @@ const JobDetail = () => {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
-  const [candidateIndex, setCandidateIndex] = useState(0);
 
-  const handleImportCandidate = useCallback(() => {
+  // ── Shared screening function ──────────────────────────────────────────────
+ const screenCandidate = async (resumeText: string) => {
+  const mockResults = [
+    {
+      name: "Sarah Chen",
+      match_score: 91,
+      summary: [
+        "Strong Python & API background matches all core requirements",
+        "AWS and Docker experience covers all preferred qualifications",
+        "No critical gaps — recommend for immediate interview"
+      ],
+      skills_matched: ["Python", "REST APIs", "PostgreSQL", "AWS", "Docker"],
+      skills_missing: ["Kubernetes"]
+    },
+    {
+      name: "James Patel",
+      match_score: 74,
+      summary: [
+        "Solid Python and SQL skills meet core requirements",
+        "REST API experience is relevant but limited in scale",
+        "Missing cloud infrastructure experience — would need onboarding"
+      ],
+      skills_matched: ["Python", "SQL", "REST APIs", "Node.js"],
+      skills_missing: ["AWS", "Docker", "Kubernetes"]
+    },
+    {
+      name: "Alex Wong",
+      match_score: 42,
+      summary: [
+        "Frontend-focused profile does not match backend requirements",
+        "Basic Python knowledge insufficient for senior role",
+        "Significant skill gaps across most required technologies"
+      ],
+      skills_matched: ["JavaScript", "Python"],
+      skills_missing: ["REST APIs", "PostgreSQL", "AWS", "Docker"]
+    }
+  ]
+
+  // Simulate AI delay
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  
+  // Cycle through results
+  const index = Math.floor(Math.random() * mockResults.length)
+  return mockResults[index]
+}
+  // ── LinkedIn Profile Import ────────────────────────────────────────────────
+  const handleImportCandidate = useCallback(async () => {
     if (!linkedinUrl.trim()) {
       toast.error("Please paste a LinkedIn profile URL");
       return;
     }
-    const mock = MOCK_CANDIDATES[candidateIndex % MOCK_CANDIDATES.length];
-    setImporting(true);
-    setImportMessage(`Importing ${mock.name} from LinkedIn...`);
 
-    setTimeout(() => {
-      setImportMessage(`Running AI screening for ${mock.name}...`);
-      setTimeout(() => {
-        addCandidate({ ...mock, job_id: id! });
-        setCandidateIndex((i) => i + 1);
-        setImporting(false);
-        setLinkedinUrl("");
-        toast.success(`${mock.name} screened — Score: ${mock.match_score}`);
-      }, 1000);
-    }, 1000);
-  }, [linkedinUrl, candidateIndex, addCandidate, id]);
-
-  const handleFileUpload = () => {
-    const mock = MOCK_CANDIDATES[candidateIndex % MOCK_CANDIDATES.length];
     setImporting(true);
-    setImportMessage(`Parsing resume and running AI screening...`);
-    setTimeout(() => {
-      addCandidate({ ...mock, job_id: id!, source: "upload" });
-      setCandidateIndex((i) => i + 1);
+
+    try {
+      // Step 1 — mock LinkedIn fetch (1.5s delay, returns name + headline + skills)
+      setImportMessage("Importing profile from LinkedIn...");
+      const profile = await mockProfileImport(linkedinUrl);
+
+      // Step 2 — build resume text from profile and call /api/screen
+      setImportMessage(`Running AI screening for ${profile.name}...`);
+      const resumeText = `Name: ${profile.name}\nCurrent Role: ${profile.headline}\nSkills: ${profile.skills}`;
+      const result = await screenCandidate(resumeText, "linkedin");
+
+      // Step 3 — save to store
+      addCandidate({
+        id: crypto.randomUUID(),
+        job_id: id!,
+        name: result.name || profile.name,
+        headline: profile.headline,
+        resume_url: null,
+        source: "linkedin",
+        match_score: result.match_score,
+        ai_summary: result.summary,
+        skills_matched: result.skills_matched,
+        skills_missing: result.skills_missing,
+        status: "pending",
+      });
+
+      setLinkedinUrl("");
+      toast.success(`${result.name || profile.name} screened — Score: ${result.match_score}`);
+    } catch (err) {
+      toast.error("Screening failed. Try again.");
+    } finally {
       setImporting(false);
-      toast.success(`${mock.name} screened — Score: ${mock.match_score}`);
-    }, 2000);
-  };
+      setImportMessage("");
+    }
+  }, [linkedinUrl, id, job, addCandidate]);
+
+  // ── PDF Upload ─────────────────────────────────────────────────────────────
+  const handleFileUpload = useCallback(async (e?: React.ChangeEvent<HTMLInputElement>) => {
+    // Support both click-to-upload (file input) and the div onClick fallback
+    const file = e?.target?.files?.[0];
+
+    setImporting(true);
+    setImportMessage("Parsing resume...");
+
+    try {
+      let resumeText = "";
+
+      if (file) {
+        // Real PDF extraction via pdfjs-dist
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages = await Promise.all(
+          Array.from({ length: pdf.numPages }, (_, i) =>
+            pdf.getPage(i + 1).then((p) => p.getTextContent())
+          )
+        );
+        resumeText = pages
+          .flatMap((p) => p.items.map((item: any) => item.str))
+          .join(" ");
+      } else {
+        // Fallback — no file selected, use first mock candidate text
+        const mock = MOCK_CANDIDATES[0];
+        resumeText = `Name: ${mock.name}\nRole: ${mock.headline}\nSkills: ${mock.skills_matched.join(", ")}`;
+      }
+
+      setImportMessage("Running AI screening...");
+      const result = await screenCandidate(resumeText, "upload");
+
+      addCandidate({
+        id: crypto.randomUUID(),
+        job_id: id!,
+        name: result.name,
+        headline: "",
+        resume_url: file ? file.name : null,
+        source: "upload",
+        match_score: result.match_score,
+        ai_summary: result.summary,
+        skills_matched: result.skills_matched,
+        skills_missing: result.skills_missing,
+        status: "pending",
+      });
+
+      toast.success(`${result.name} screened — Score: ${result.match_score}`);
+    } catch (err) {
+      toast.error("Resume screening failed. Try again.");
+    } finally {
+      setImporting(false);
+      setImportMessage("");
+    }
+  }, [id, job, addCandidate]);
 
   if (!job) {
     return (
@@ -114,6 +228,7 @@ const JobDetail = () => {
             <TabsTrigger value="linkedin">Import from LinkedIn</TabsTrigger>
             <TabsTrigger value="upload">Upload Resume</TabsTrigger>
           </TabsList>
+
           <TabsContent value="linkedin">
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -131,26 +246,35 @@ const JobDetail = () => {
               </Button>
             </div>
           </TabsContent>
+
           <TabsContent value="upload">
-            <div
-              onClick={handleFileUpload}
-              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            >
-              <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Click to upload a PDF resume
-              </p>
-            </div>
+            <label className="block">
+              <input
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={importing}
+              />
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors">
+                <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Click to upload a PDF resume
+                </p>
+              </div>
+            </label>
           </TabsContent>
         </Tabs>
+
         {importing && <LinkedInSpinner message={importMessage} />}
       </div>
 
-      {/* Candidates */}
+      {/* Ranked Candidates */}
       <div className="linkedin-card p-5">
         <h2 className="font-semibold text-foreground mb-4">
           Ranked Candidates ({candidates.length})
         </h2>
+
         {importing && candidates.length === 0 && (
           <div className="space-y-3">
             {[1, 2].map((i) => (
@@ -165,11 +289,13 @@ const JobDetail = () => {
             ))}
           </div>
         )}
+
         {candidates.length === 0 && !importing && (
           <p className="text-sm text-muted-foreground text-center py-6">
             No candidates yet. Import from LinkedIn or upload a resume to get started.
           </p>
         )}
+
         <div className="space-y-2">
           {candidates.map((c, idx) => (
             <Link key={c.id} to={`/jobs/${id}/candidates/${c.id}`}>
@@ -198,3 +324,4 @@ const JobDetail = () => {
 };
 
 export default JobDetail;
+console.log("KEY:", import.meta.env.VITE_GEMINI_API_KEY?.slice(0, 15))
