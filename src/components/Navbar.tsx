@@ -1,0 +1,58 @@
+import { Briefcase, Home, Search, Users } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+
+const Navbar = () => {
+  const location = useLocation();
+
+  const navItems = [
+    { icon: Home, label: "Home", path: "/" },
+    { icon: Briefcase, label: "Jobs", path: "/" },
+    { icon: Users, label: "Candidates", path: "/" },
+  ];
+
+  return (
+    <nav className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
+      <div className="max-w-[1128px] mx-auto px-4 flex items-center justify-between h-[52px]">
+        <div className="flex items-center gap-4">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+              <Briefcase className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="font-bold text-lg text-foreground hidden sm:block">
+              JobFit AI
+            </span>
+          </Link>
+          <div className="relative hidden md:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search jobs, candidates..."
+              className="pl-9 pr-4 py-1.5 bg-secondary rounded text-sm w-[280px] outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path && item.label === "Home";
+            return (
+              <Link
+                key={item.label}
+                to={item.path}
+                className={`flex flex-col items-center px-4 py-1 text-xs transition-colors ${
+                  isActive
+                    ? "text-foreground border-b-2 border-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="hidden sm:block mt-0.5">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;
