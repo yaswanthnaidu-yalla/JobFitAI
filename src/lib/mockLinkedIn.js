@@ -30,12 +30,26 @@ export const mockJobImport = (url) =>
   )
 
 const mockProfiles = [
-  { name: 'Sarah Chen', headline: 'Senior Backend Engineer at Google',
-    skills: 'Python, REST APIs, PostgreSQL, AWS, Docker, system design' },
-  { name: 'James Patel', headline: 'Full Stack Developer at Startupco',
-    skills: 'Python, SQL, Node.js, REST APIs, basic AWS' },
-  { name: 'Alex Wong', headline: 'Junior Developer at Agency',
-    skills: 'JavaScript, HTML, CSS, basic Python, no backend experience' }
+  { name: 'Sarah Chen', headline: 'Senior Frontend Engineer at Stripe',
+    skills: 'React, TypeScript, Next.js, HTML5, CSS3, responsive design, GraphQL, Storybook, accessibility (WCAG), performance optimization' },
+  { name: 'Raj Mehta', headline: 'Data Scientist at Netflix',
+    skills: 'Python, pandas, scikit-learn, SQL, statistical modeling, TensorFlow, Spark, A/B testing, Tableau, data visualization' },
+  { name: 'Emily Nakamura', headline: 'Senior Product Manager at Atlassian',
+    skills: 'Product management, user research, Agile/Scrum, data-driven decision-making, stakeholder communication, SQL, Figma, B2B SaaS, growth experimentation' },
+  { name: 'Carlos Rivera', headline: 'DevOps Engineer at Datadog',
+    skills: 'AWS, GCP, Terraform, Docker, Kubernetes, Linux administration, GitHub Actions, Prometheus, Grafana, Ansible, CI/CD pipelines, security hardening' },
+  { name: 'Priya Sharma', headline: 'ML Engineer at OpenAI',
+    skills: 'Python, PyTorch, TensorFlow, feature engineering, model evaluation, REST APIs, MLflow, Kubeflow, NLP, computer vision, distributed training' },
+  { name: 'James Patel', headline: 'Senior Backend Engineer at Google',
+    skills: 'Python, Go, REST APIs, gRPC, PostgreSQL, Redis, microservices architecture, Kafka, Elasticsearch, AWS Lambda, domain-driven design, observability' },
+  { name: 'Aisha Okafor', headline: 'Lead UI/UX Designer at Figma',
+    skills: 'Figma, user research, interaction design, visual design, responsive design, mobile-first design, motion design, accessibility audits, HTML/CSS, design tokens, usability testing' },
+  { name: 'Liam O\'Brien', headline: 'Senior QA Engineer at Microsoft',
+    skills: 'Cypress, Playwright, Selenium, test planning, API testing, Postman, regression testing, Jira, performance testing, k6, CI/CD integration, mobile testing, Appium' },
+  { name: 'Mei Lin Zhang', headline: 'Cloud Architect at AWS',
+    skills: 'AWS, Azure, GCP, networking, VPC, load balancing, IAM, high availability, Terraform, CloudFormation, multi-account strategies, FinOps, Istio, serverless architectures' },
+  { name: 'Daniel Kim', headline: 'Senior Mobile Developer at Airbnb',
+    skills: 'React Native, Flutter, TypeScript, Dart, REST API integration, app store deployment, state management, Swift, Kotlin, push notifications, offline-first architecture, CI/CD for mobile' },
 ]
 
 export const mockProfileImport = (url) =>
