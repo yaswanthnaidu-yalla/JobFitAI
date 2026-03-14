@@ -112,7 +112,7 @@ const CandidateDetail = () => {
       {/* Banner + Profile */}
       <div className="linkedin-card overflow-hidden">
         <div className="h-28 bg-gradient-to-r from-[hsl(var(--banner-gradient-from))] to-[hsl(var(--banner-gradient-to))]" />
-        <div className="px-6 pb-5 -mt-12">
+        <div className="px-4 sm:px-6 pb-5 -mt-12">
           <CandidateAvatar name={candidate.name} size="xl" />
           <h1 className="text-xl font-semibold text-foreground mt-3">{candidate.name}</h1>
           <p className="text-sm text-muted-foreground">{candidate.headline}</p>
@@ -120,7 +120,7 @@ const CandidateDetail = () => {
       </div>
 
       {/* Score */}
-      <div className="linkedin-card p-6 mt-4 flex items-center gap-6">
+      <div className="linkedin-card p-4 sm:p-6 mt-4 flex items-center gap-4 sm:gap-6">
         <ScoreBadge score={candidate.match_score} size="lg" />
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider">AI Screening Result</p>
@@ -166,7 +166,7 @@ const CandidateDetail = () => {
       </div>
 
       {/* Actions */}
-      <div className="linkedin-card p-4 mt-4 flex flex-wrap gap-3">
+      <div className="linkedin-card p-4 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         <Button
           onClick={() => handleStatus("shortlisted")}
           disabled={candidate.status === "shortlisted"}

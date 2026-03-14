@@ -250,8 +250,8 @@ const Dashboard = () => {
           )}
         </main>
 
-        {/* Right Sidebar */}
-        <aside className="hidden lg:block space-y-4">
+        {/* Right Sidebar — Quick Stats */}
+        <aside className="space-y-4">
           <div className="linkedin-card p-4">
             <h3 className="font-semibold text-foreground mb-4">Quick Stats</h3>
             <div className="space-y-4">

@@ -399,7 +399,7 @@ Return a JSON object with these fields:
 
           <TabsContent value="url">
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
                   <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -410,7 +410,7 @@ Return a JSON object with these fields:
                     disabled={importing}
                   />
                 </div>
-                <Button onClick={handleImportCandidate} disabled={importing}>
+                <Button onClick={handleImportCandidate} disabled={importing} className="w-full sm:w-auto">
                   Import Candidate
                 </Button>
               </div>
@@ -461,7 +461,7 @@ Return a JSON object with these fields:
 
       {/* Ranked Candidates */}
       <div className="linkedin-card p-5">
-        <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
           <h2 className="font-semibold text-foreground">
             Ranked Candidates ({candidates.length})
           </h2>
@@ -478,7 +478,7 @@ Return a JSON object with these fields:
 
         {/* Filter Bar */}
         {candidates.length > 0 && (
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             {(["all", "shortlisted", "rejected"] as const).map((filter) => {
               const count =
                 filter === "all"
@@ -529,7 +529,7 @@ Return a JSON object with these fields:
             : candidates.filter((c) => c.status === statusFilter)
           ).map((c, idx) => (
             <Link key={c.id} to={`/jobs/${id}/candidates/${c.id}`}>
-              <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors">
                 <span className="text-sm font-medium text-muted-foreground w-5">
                   #{idx + 1}
                 </span>
