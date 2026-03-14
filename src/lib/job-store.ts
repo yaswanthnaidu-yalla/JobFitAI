@@ -100,6 +100,28 @@ export const useJobStore = create<JobStore>((set, get) => ({
 
     const created = (data ?? newCandidate) as Candidate;
 
+    // Query the real candidate count for this job from Supabase
+    const { count: realCount, error: countError } = await supabase
+      .from("candidates")
+      .select("*", { count: "exact", head: true })
+      .eq("job_id", newCandidate.job_id);
+
+    if (countError) {
+      console.error("Failed to fetch candidate count from Supabase:", countError);
+    }
+
+    const candidatesCount = realCount ?? 0;
+
+    // Update candidates_count on the job row in Supabase
+    const { error: updateError } = await supabase
+      .from("jobs")
+      .update({ candidates_count: candidatesCount })
+      .eq("id", newCandidate.job_id);
+
+    if (updateError) {
+      console.error("Failed to update job candidates_count in Supabase:", updateError);
+    }
+
     set((s) => {
       const updatedJobs = s.jobs.map((j) => {
         if (j.id === created.job_id) {
@@ -109,7 +131,7 @@ export const useJobStore = create<JobStore>((set, get) => ({
           ];
           return {
             ...j,
-            candidates_count: jobCandidates.length,
+            candidates_count: candidatesCount,
             top_score: Math.max(...jobCandidates.map((c) => c.match_score)),
           };
         }
@@ -189,9 +211,37 @@ export const useJobStore = create<JobStore>((set, get) => ({
     const job = (data as Job) ?? null;
 
     if (job) {
+      // Fetch the real candidate count for this job
+      const { count: realCount, error: countError } = await supabase
+        .from("candidates")
+        .select("*", { count: "exact", head: true })
+        .eq("job_id", id);
+
+      if (countError) {
+        console.error("Failed to fetch candidate count from Supabase:", countError);
+      }
+
+      const candidatesCount = realCount ?? job.candidates_count;
+
+      // Persist the accurate count back to the jobs row
+      if (candidatesCount !== job.candidates_count) {
+        const { error: updateError } = await supabase
+          .from("jobs")
+          .update({ candidates_count: candidatesCount })
+          .eq("id", id);
+
+        if (updateError) {
+          console.error("Failed to sync job candidates_count in Supabase:", updateError);
+        }
+      }
+
+      const jobWithCount: Job = { ...job, candidates_count: candidatesCount };
+
       set((s) => ({
-        jobs: [job, ...s.jobs.filter((j) => j.id !== job.id)],
+        jobs: [jobWithCount, ...s.jobs.filter((j) => j.id !== jobWithCount.id)],
       }));
+
+      return jobWithCount;
     }
 
     return job;
