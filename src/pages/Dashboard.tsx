@@ -70,7 +70,7 @@ const Dashboard = () => {
               Dashboard
             </Link>
             <Link
-              to="/"
+              to="/candidates"
               className="flex items-center gap-3 px-3 py-2.5 rounded-md text-muted-foreground hover:bg-secondary text-sm"
             >
               <Users className="w-4 h-4" />
