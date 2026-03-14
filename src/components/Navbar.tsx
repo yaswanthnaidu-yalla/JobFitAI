@@ -1,8 +1,21 @@
-import { Briefcase, Home, Search, Users } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Briefcase, Home, LogOut, Search, Users } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuthStore } from "@/lib/auth-store";
+import { toast } from "sonner";
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const signOut = useAuthStore((s) => s.signOut);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate("/login");
+    } catch {
+      toast.error("Failed to sign out.");
+    }
+  };
 
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -52,6 +65,13 @@ const Navbar = () => {
               </Link>
             );
           })}
+          <button
+            onClick={handleSignOut}
+            className="flex flex-col items-center px-4 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="hidden sm:block mt-0.5">Sign Out</span>
+          </button>
         </div>
       </div>
     </nav>
