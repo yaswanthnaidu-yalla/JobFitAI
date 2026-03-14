@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Link2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ const JobDetail = () => {
   };
 
   const [jdExpanded, setJdExpanded] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "shortlisted" | "rejected">("all");
 
   const handleDeleteJob = async () => {
     if (!window.confirm("Delete this job and all its candidates?")) return;
@@ -475,6 +476,32 @@ Return a JSON object with these fields:
           )}
         </div>
 
+        {/* Filter Bar */}
+        {candidates.length > 0 && (
+          <div className="flex gap-2 mb-4">
+            {(["all", "shortlisted", "rejected"] as const).map((filter) => {
+              const count =
+                filter === "all"
+                  ? candidates.length
+                  : candidates.filter((c) => c.status === filter).length;
+              const isActive = statusFilter === filter;
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setStatusFilter(filter)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {importing && candidates.length === 0 && (
           <div className="space-y-3">
             {[1, 2].map((i) => (
@@ -497,7 +524,10 @@ Return a JSON object with these fields:
         )}
 
         <div className="space-y-2">
-          {candidates.map((c, idx) => (
+          {(statusFilter === "all"
+            ? candidates
+            : candidates.filter((c) => c.status === statusFilter)
+          ).map((c, idx) => (
             <Link key={c.id} to={`/jobs/${id}/candidates/${c.id}`}>
               <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors">
                 <span className="text-sm font-medium text-muted-foreground w-5">
@@ -518,6 +548,13 @@ Return a JSON object with these fields:
             </Link>
           ))}
         </div>
+
+        {statusFilter !== "all" &&
+          candidates.filter((c) => c.status === statusFilter).length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No {statusFilter} candidates yet.
+            </p>
+          )}
       </div>
     </div>
   );
