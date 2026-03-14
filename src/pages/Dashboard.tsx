@@ -1,17 +1,85 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Briefcase, Users, TrendingUp } from "lucide-react";
+import { Plus, Briefcase, Users, TrendingUp, Pencil, Check } from "lucide-react";
 import { useJobStore } from "@/lib/job-store";
+import { useAuthStore } from "@/lib/auth-store";
+import { supabase } from "@/lib/supabase";
 import type { Job, Candidate } from "@/lib/mock-data";
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 const Dashboard = () => {
   const getJobs = useJobStore((s) => s.getJobs);
   const getJobCandidates = useJobStore((s) => s.getJobCandidates);
+  const user = useAuthStore((s) => s.user);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+
+  // Profile state
+  const [profileName, setProfileName] = useState("HR Recruiter");
+  const [profileTitle, setProfileTitle] = useState("");
+  const [profileCompany, setProfileCompany] = useState("TechCorp Inc.");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editCompany, setEditCompany] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Fetch profile on mount
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (error) {
+        console.error("Failed to fetch profile:", error);
+        return;
+      }
+      if (data) {
+        setProfileName(data.full_name || "HR Recruiter");
+        setProfileTitle(data.title || "");
+        setProfileCompany(data.company || "TechCorp Inc.");
+      }
+    })();
+  }, [user]);
+
+  const handleEditProfile = () => {
+    setEditName(profileName);
+    setEditTitle(profileTitle);
+    setEditCompany(profileCompany);
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    setSavingProfile(true);
+    try {
+      const { error } = await supabase.from("profiles").upsert({
+        id: user.id,
+        full_name: editName,
+        title: editTitle,
+        company: editCompany,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      setProfileName(editName);
+      setProfileTitle(editTitle);
+      setProfileCompany(editCompany);
+      setEditingProfile(false);
+      toast.success("Profile updated!");
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+      toast.error("Failed to save profile.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -52,11 +120,66 @@ const Dashboard = () => {
         {/* Left Sidebar */}
         <aside className="hidden lg:block space-y-4">
           <div className="linkedin-card p-4">
-            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mb-3">
-              <span className="text-primary-foreground font-bold text-lg">HR</span>
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mb-3">
+                <span className="text-primary-foreground font-bold text-lg">
+                  {profileName
+                    .split(" ")
+                    .map((w) => w[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase() || "HR"}
+                </span>
+              </div>
+              {editingProfile ? (
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                  className="text-primary hover:text-primary/80 transition-colors p-1"
+                  aria-label="Save profile"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleEditProfile}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                  aria-label="Edit profile"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <h3 className="font-semibold text-foreground">HR Recruiter</h3>
-            <p className="text-sm text-muted-foreground">TechCorp Inc.</p>
+            {editingProfile ? (
+              <div className="space-y-2">
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Full name"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Job title"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={editCompany}
+                  onChange={(e) => setEditCompany(e.target.value)}
+                  placeholder="Company"
+                  className="h-8 text-sm"
+                />
+              </div>
+            ) : (
+              <>
+                <h3 className="font-semibold text-foreground">{profileName}</h3>
+                {profileTitle && (
+                  <p className="text-sm text-muted-foreground">{profileTitle}</p>
+                )}
+                <p className="text-sm text-muted-foreground">{profileCompany}</p>
+              </>
+            )}
           </div>
           <nav className="linkedin-card p-2">
             <Link
