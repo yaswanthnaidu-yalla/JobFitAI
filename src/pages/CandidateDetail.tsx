@@ -12,10 +12,12 @@ import { toast } from "sonner";
 const CandidateDetail = () => {
   const { id, cid } = useParams<{ id: string; cid: string }>();
   const navigate = useNavigate();
-  const { getCandidate, getJob, updateCandidateStatus, getJobCandidates, deleteCandidate } = useJobStore();
+  const { getCandidate, getJob, updateCandidateStatus, updateCandidateNotes, getJobCandidates, deleteCandidate } = useJobStore();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notes, setNotes] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
 
   useEffect(() => {
     if (!id || !cid) return;
@@ -31,6 +33,9 @@ const CandidateDetail = () => {
         if (!cancelled) {
           setCandidate(loadedCandidate ?? null);
           setJob(loadedJob ?? null);
+          if (loadedCandidate) {
+            setNotes(loadedCandidate.notes || "");
+          }
         }
       } catch (err) {
         console.error("Failed to load candidate detail:", err);
@@ -71,6 +76,19 @@ const CandidateDetail = () => {
         ? `${candidate.name} shortlisted!`
         : `${candidate.name} rejected`
     );
+  };
+
+  const handleSaveNotes = async () => {
+    if (!cid) return;
+    setSavingNotes(true);
+    try {
+      await updateCandidateNotes(cid, notes);
+      toast.success("Note saved!");
+    } catch {
+      toast.error("Failed to save note.");
+    } finally {
+      setSavingNotes(false);
+    }
   };
 
   const handleDeleteCandidate = async () => {
@@ -162,6 +180,26 @@ const CandidateDetail = () => {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="linkedin-card p-6 mt-4">
+        <h2 className="font-semibold text-foreground mb-3">Notes</h2>
+        <textarea
+          placeholder="Add notes about this candidate..."
+          className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+        <div className="flex justify-end mt-2">
+          <Button
+            size="sm"
+            onClick={handleSaveNotes}
+            disabled={savingNotes}
+          >
+            {savingNotes ? "Saving..." : "Save Note"}
+          </Button>
         </div>
       </div>
 

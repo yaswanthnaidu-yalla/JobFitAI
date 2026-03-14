@@ -19,6 +19,7 @@ export interface Candidate {
   skills_matched: string[];
   skills_missing: string[];
   status: "pending" | "shortlisted" | "rejected";
+  notes: string;
   created_at: string;
 }
 
@@ -42,6 +43,7 @@ export const MOCK_CANDIDATES: Omit<Candidate, "id" | "job_id" | "created_at">[] 
     skills_matched: ["Python", "REST APIs", "PostgreSQL", "AWS", "Docker"],
     skills_missing: ["Kubernetes"],
     status: "pending",
+    notes: "",
   },
   {
     name: "James Patel",
@@ -56,6 +58,7 @@ export const MOCK_CANDIDATES: Omit<Candidate, "id" | "job_id" | "created_at">[] 
     skills_matched: ["Python", "SQL", "REST APIs", "Node.js"],
     skills_missing: ["AWS", "Docker", "Kubernetes"],
     status: "pending",
+    notes: "",
   },
   {
     name: "Alex Wong",
@@ -70,6 +73,7 @@ export const MOCK_CANDIDATES: Omit<Candidate, "id" | "job_id" | "created_at">[] 
     skills_matched: ["JavaScript", "HTML", "CSS"],
     skills_missing: ["Python", "REST APIs", "PostgreSQL", "AWS", "Docker", "Kubernetes"],
     status: "pending",
+    notes: "",
   },
 ];
 

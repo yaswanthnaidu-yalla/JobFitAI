@@ -17,6 +17,7 @@ interface JobStore {
   getJobCandidates: (jobId: string) => Promise<Candidate[]>;
   getJob: (id: string) => Promise<Job | null>;
   getCandidate: (id: string) => Candidate | undefined;
+  updateCandidateNotes: (id: string, notes: string) => Promise<Candidate | null>;
   deleteJob: (id: string) => Promise<void>;
   deleteCandidate: (id: string) => Promise<void>;
 }
@@ -249,6 +250,33 @@ export const useJobStore = create<JobStore>((set, get) => ({
 
   // Local selector for a candidate; callers can ensure candidates are loaded via getJobCandidates
   getCandidate: (id) => get().candidates.find((c) => c.id === id),
+
+  // Update candidate notes in Supabase and local cache
+  updateCandidateNotes: async (id, notes) => {
+    const { data, error } = await supabase
+      .from("candidates")
+      .update({ notes })
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to update candidate notes in Supabase:", error);
+      throw error;
+    }
+
+    const updated = (data as Candidate) ?? null;
+
+    if (updated) {
+      set((s) => ({
+        candidates: s.candidates.map((c) =>
+          c.id === id ? { ...c, notes: updated.notes } : c
+        ),
+      }));
+    }
+
+    return updated;
+  },
 
   // Delete a job and all its candidates from Supabase, then remove from local state
   deleteJob: async (id) => {
