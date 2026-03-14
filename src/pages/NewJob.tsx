@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useJobStore } from "@/lib/job-store";
-import { MOCK_JOB_IMPORT } from "@/lib/mock-data";
+import { mockJobImport } from "@/lib/mockLinkedIn";
 import LinkedInSpinner from "@/components/LinkedInSpinner";
 import { toast } from "sonner";
 
@@ -17,18 +17,23 @@ const NewJob = () => {
   const [description, setDescription] = useState("");
   const [importing, setImporting] = useState(false);
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!linkedinUrl.trim()) {
       toast.error("Please paste a LinkedIn job URL");
       return;
     }
     setImporting(true);
-    setTimeout(() => {
-      setTitle(MOCK_JOB_IMPORT.title);
-      setDescription(MOCK_JOB_IMPORT.description);
-      setImporting(false);
+    try {
+      const result = await mockJobImport(linkedinUrl);
+      setTitle(result.title);
+      setDescription(result.description);
       toast.success("Job details imported from LinkedIn!");
-    }, 1500);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to import job details.");
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
