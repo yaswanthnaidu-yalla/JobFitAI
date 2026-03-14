@@ -1,13 +1,15 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Plus, Briefcase, Users, TrendingUp } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { useJobStore } from "@/lib/job-store";
 import type { Job, Candidate } from "@/lib/mock-data";
 import ScoreBadge from "@/components/ScoreBadge";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 
 const Dashboard = () => {
+  const getJobs = useJobStore((s) => s.getJobs);
+  const getJobCandidates = useJobStore((s) => s.getJobCandidates);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
 
@@ -16,22 +18,17 @@ const Dashboard = () => {
 
     (async () => {
       try {
-        const [{ data: jobsData, error: jobsError }, { data: candidatesData, error: candidatesError }] =
-          await Promise.all([
-            supabase.from("jobs").select("*").order("created_at", { ascending: false }),
-            supabase.from("candidates").select("*"),
-          ]);
+        const fetchedJobs = await getJobs();
+        if (cancelled) return;
+        setJobs(fetchedJobs);
 
-        if (jobsError) {
-          console.error("Failed to fetch jobs from Supabase:", jobsError);
-        }
-        if (candidatesError) {
-          console.error("Failed to fetch candidates from Supabase:", candidatesError);
-        }
+        // Fetch candidates for every job in parallel
+        const allCandidates = (
+          await Promise.all(fetchedJobs.map((j) => getJobCandidates(j.id)))
+        ).flat();
 
         if (!cancelled) {
-          setJobs((jobsData as Job[]) ?? []);
-          setCandidates((candidatesData as Candidate[]) ?? []);
+          setCandidates(allCandidates);
         }
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
@@ -41,7 +38,7 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [getJobs, getJobCandidates]);
 
   const totalResumes = candidates.length;
   const avgScore =

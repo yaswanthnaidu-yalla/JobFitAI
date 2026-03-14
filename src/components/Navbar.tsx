@@ -1,12 +1,21 @@
+import { useEffect } from "react";
 import { Briefcase, Home, LogOut, Search, Users } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/lib/auth-store";
+import { useSearchStore } from "@/lib/search-store";
 import { toast } from "sonner";
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const signOut = useAuthStore((s) => s.signOut);
+  const query = useSearchStore((s) => s.query);
+  const setQuery = useSearchStore((s) => s.setQuery);
+
+  // Clear search query on route change
+  useEffect(() => {
+    setQuery("");
+  }, [location.pathname, setQuery]);
 
   const handleSignOut = async () => {
     try {
@@ -40,6 +49,8 @@ const Navbar = () => {
             <input
               type="text"
               placeholder="Search jobs, candidates..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="pl-9 pr-4 py-1.5 bg-secondary rounded text-sm w-[280px] outline-none focus:ring-1 focus:ring-primary"
             />
           </div>

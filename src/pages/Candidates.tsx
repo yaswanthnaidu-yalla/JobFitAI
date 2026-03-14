@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useJobStore } from "@/lib/job-store";
+import { useSearchStore } from "@/lib/search-store";
 import type { Job, Candidate } from "@/lib/mock-data";
 import CandidateAvatar from "@/components/Avatar";
 import ScoreBadge from "@/components/ScoreBadge";
@@ -14,6 +15,7 @@ interface GroupedByJob {
 
 const Candidates = () => {
   const { getJobs, getJobCandidates } = useJobStore();
+  const query = useSearchStore((s) => s.query);
   const [groups, setGroups] = useState<GroupedByJob[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +53,21 @@ const Candidates = () => {
     };
   }, [getJobs, getJobCandidates]);
 
+  const filteredGroups = useMemo(() => {
+    if (!query.trim()) return groups;
+    const q = query.toLowerCase();
+    return groups
+      .map((g) => ({
+        ...g,
+        candidates: g.candidates.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.skills_matched.some((s) => s.toLowerCase().includes(q))
+        ),
+      }))
+      .filter((g) => g.candidates.length > 0);
+  }, [groups, query]);
+
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -77,7 +94,7 @@ const Candidates = () => {
     );
   }
 
-  const hasAnyCandidates = groups.some((g) => g.candidates.length > 0);
+  const hasAnyCandidates = filteredGroups.some((g) => g.candidates.length > 0);
 
   return (
     <div className="max-w-[780px] mx-auto px-4 py-6 space-y-4">
@@ -85,11 +102,13 @@ const Candidates = () => {
 
       {!hasAnyCandidates ? (
         <div className="linkedin-card p-8 text-center text-sm text-muted-foreground">
-          No candidates yet. Import profiles or upload resumes from any job page.
+          {query.trim()
+            ? "No candidates match your search. Try a different term."
+            : "No candidates yet. Import profiles or upload resumes from any job page."}
         </div>
       ) : (
         <div className="space-y-6">
-          {groups
+          {filteredGroups
             .filter((g) => g.candidates.length > 0)
             .map((group) => (
               <div key={group.job.id} className="linkedin-card p-5 space-y-3">

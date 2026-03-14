@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { Job } from "@/lib/mock-data";
 import ScoreBadge from "@/components/ScoreBadge";
@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Plus, Briefcase } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useJobStore } from "@/lib/job-store";
+import { useSearchStore } from "@/lib/search-store";
 
 const Jobs = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const { getJobs } = useJobStore();
+  const query = useSearchStore((s) => s.query);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +32,12 @@ const Jobs = () => {
     };
   }, [getJobs]);
 
+  const filteredJobs = useMemo(() => {
+    if (!query.trim()) return jobs;
+    const q = query.toLowerCase();
+    return jobs.filter((job) => job.title.toLowerCase().includes(q));
+  }, [jobs, query]);
+
   return (
     <div className="max-w-[1128px] mx-auto px-4 py-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -42,23 +50,27 @@ const Jobs = () => {
         </Link>
       </div>
 
-      {jobs.length === 0 ? (
+      {filteredJobs.length === 0 ? (
         <div className="linkedin-card p-12 text-center">
           <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-lg font-semibold mb-2">No jobs yet</h2>
+          <h2 className="text-lg font-semibold mb-2">{query.trim() ? "No matching jobs" : "No jobs yet"}</h2>
           <p className="text-muted-foreground mb-4">
-            Post your first job to start screening candidates with AI.
+            {query.trim()
+              ? "Try a different search term."
+              : "Post your first job to start screening candidates with AI."}
           </p>
-          <Link to="/jobs/new">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Post a Job
-            </Button>
-          </Link>
+          {!query.trim() && (
+            <Link to="/jobs/new">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Post a Job
+              </Button>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {jobs.map((job) => (
+          {filteredJobs.map((job) => (
             <Link key={job.id} to={`/jobs/${job.id}`}>
               <div className="linkedin-card p-5 card-hover cursor-pointer">
                 <div className="flex items-start justify-between">
