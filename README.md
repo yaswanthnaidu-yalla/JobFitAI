@@ -268,4 +268,3 @@ Built during a hackathon. AI usage was a requirement — this project was made w
 Development used Groq's LLM API for candidate screening, and AI coding tools were used throughout the development process. The project is intentionally transparent about what is real, what is mocked, and where shortcuts were taken.
 
 
-contributors- https://github.com/sambarajuchatelli-boop
