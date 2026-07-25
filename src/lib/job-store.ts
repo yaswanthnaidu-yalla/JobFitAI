@@ -49,36 +49,37 @@ export const useJobStore = create<JobStore>((set, get) => ({
 
   // Insert a new job into Supabase and update local cache
   addJob: async (title, description) => {
+    // 1. Get the current authenticated user's ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      throw new Error("You must be logged in to create a job.");
+    }
     const id = crypto.randomUUID();
-    const newJob: Job = {
+    const newJob = {
       id,
       title,
       description,
+      user_id: user.id, // Explicitly attach the authenticated user's ID
       created_at: new Date().toISOString(),
       candidates_count: 0,
       top_score: null,
     };
-
     const { data, error } = await supabase
       .from("jobs")
       .insert(newJob)
       .select("*")
       .single();
-
     if (error) {
       console.error("Failed to insert job into Supabase:", error);
       throw error;
     }
-
     const job = (data ?? newJob) as Job;
-
     set((s) => ({
       jobs: [job, ...s.jobs.filter((j) => j.id !== job.id)],
     }));
-
     return job;
   },
-
   // Insert a new candidate into Supabase and update local cache
   addCandidate: async (candidate) => {
     const id = crypto.randomUUID();
