@@ -2,7 +2,7 @@
 
 > AI-powered resume screening and candidate ranking for lean hiring teams.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?style=flat-square&logo=vercel)](https://job-fit-ai-4uff.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?style=flat-square&logo=vercel)](https://job-fit-ai-main.vercel.app)
 [![Tech Stack](https://img.shields.io/badge/Stack-React%20%2B%20Supabase%20%2B%20Groq-blue?style=flat-square)]()
 [![Hackathon](https://img.shields.io/badge/Built%20at-Hackathon-orange?style=flat-square)]()
 
@@ -115,7 +115,7 @@ JobFitAI/
 ## Usage Guide
 
 **First time:**
-1. Go to the [live app](https://job-fit-ai-4uff.vercel.app) and sign up with an email and password
+1. Go to the [live app](https://job-fit-ai-main.vercel.app) and sign up with an email and password
 2. Fill in your name, title, and company on the dashboard sidebar
 3. Click "Post a Job" — either paste a URL or fill in the job details manually
 
